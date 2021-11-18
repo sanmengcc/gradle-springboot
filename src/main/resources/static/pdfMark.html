@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- axios -->
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+<!-- vue -->
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+<!-- elementUI -->
+<script src="https://unpkg.com/element-ui@2.13.0/lib/index.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+<head>
+    <meta charset="UTF-8">
+    <title>PDF文件水印</title>
+</head>
+<style>
+    .el-header,
+    .el-footer {
+        background-color: #b3c0d1;
+        color: var(--el-text-color-primary);
+        text-align: center;
+        line-height: 60px;
+    }
+
+    .el-aside {
+        background-color: #d3dce6;
+        color: var(--el-text-color-primary);
+        text-align: center;
+        line-height: 200px;
+    }
+
+    .el-main {
+        background-color: #e9eef3;
+        color: var(--el-text-color-primary);
+        text-align: center;
+    }
+
+    body > .el-container {
+        margin-bottom: 40px;
+    }
+
+    .el-container:nth-child(5) .el-aside,
+    .el-container:nth-child(6) .el-aside {
+        line-height: 260px;
+    }
+
+    .el-container:nth-child(7) .el-aside {
+        line-height: 320px;
+    }
+</style>
+<body>
+<div id='app' v-cloak>
+    <template>
+        <el-container v-loading="loading">
+            <el-header>PDF头部</el-header>
+            <el-main>
+                <el-upload
+                        ref="upload"
+                        class="upload-demo"
+                        drag
+                        accept=".pdf, .PDF"
+                        action="#"
+                        multiple
+                        :http-request="upload"
+                        :before-remove="beforeremove"
+                        :before-upload="beforeupload"
+                        :auto-upload="false"
+                >
+                    <el-icon class="el-icon--upload">
+                        <upload-filled/>
+                    </el-icon>
+                    <div class="el-upload__text">
+                        拖拽上传 或者<em>点击上传</em>
+                    </div>
+
+                    <template #tip>
+                        <div class="el-upload__tip">
+                            上传正确的文件
+                        </div>
+                    </template>
+
+                </el-upload>
+                <el-button
+                        style="margin-left: 10px"
+                        size="small"
+                        type="success"
+                        @click="submitUpload"
+                >上传并执行水印</el-button
+                >
+
+            </el-main>
+            <el-footer>PDF底部</el-footer>
+        </el-container>
+
+
+    </template>
+</div>
+</body>
+<script>
+    var app = new Vue({
+        el: '#app',
+        name: "index",
+        data() {
+            return {
+                fileList:[],
+                download:'',
+                loading:false,
+            }
+        },
+        created: function () {
+
+        },
+        methods: {
+            submitUpload() {
+                console.log("submitUpload-------")
+                this.$refs.upload.submit();
+                this.uploadData();
+            },
+            beforeupload(file,fileList) {
+                var flag = false;
+                this.fileList.forEach(item=>{
+                    if (item.uid == file.uid) {
+                        flag = true;
+                    }
+                })
+                if (!flag) {
+                    this.fileList.push(file);
+                }
+            },
+            upload(){
+
+            },
+            beforeremove(file,dataList) {
+                var fileList = [];
+                dataList.forEach(item => {
+                    if (item.uid != file.uid) {
+                        fileList.push(item);
+                    }
+                });
+                this.fileList = fileList;
+            },
+            uploadData() {
+                console.log("upload-------")
+
+                if (this.fileList.length == 0) {
+                    this.$notify({
+                        title: '警告',
+                        message: '请先选择文件后再上传执行水印!',
+                        type: 'warning'
+                    });
+                    return;
+                }
+
+                this.loading = true;
+
+                var self = this;
+
+                var forms = new FormData()
+                var configs = {
+                    headers:{'Content-Type':'multipart/form-data'}
+                };
+                this.fileList.forEach(file=>{
+                    forms.append('filenames',file)
+                })
+
+                axios.post("/pdf/watermark/upload/v3",forms ,configs).then(res=>{
+                    self.loading = false;
+                    if (res.data.code = 200) {
+                        var url = window.location.host;
+                        self.download = url + '/' + res.data.data;
+                        console.log(self.download)
+                        this.$confirm('水印结束、请下载文件!', '提示', {
+                            confirmButtonText: '下载',
+                            cancelButtonText: '取消',
+                            type: 'warning'
+                        }).then(() => {
+                            console.log(self.download)
+                            window.location.href = self.download;
+                        }).catch(() => {
+                            this.$message({
+                                type: 'info',
+                                message: '已取消下载'
+                            });
+
+                            self.download = '';
+                        });
+                    }else{
+                        this.$notify({
+                            title: '警告',
+                            message: '服务异常、请稍后再试!',
+                            type: 'warning'
+                        });
+                    }
+                });
+            }
+        }
+        ,
+        mounted() {
+
+        },
+    });
+</script>
+</html>
